@@ -26,7 +26,13 @@ function parseCommentNode (
 ): ParseCommentNodeResponse {
   let end = start
 
-  while (content[end] !== '*' || content[end + 1] !== '/') ++end
+  while (content[end] !== '*' || content[end + 1] !== '/') {
+    if (end > content.length - 1) {
+      throw new Error('Failed to finish parsing comment')
+    }
+
+    ++end
+  }
 
   return {
     index: end + 2,
@@ -44,23 +50,58 @@ function parsePropertyNode (
 ): ParsePropertyNodeResponse {
   let end = 0
 
-  while (end !== ':') ++end
+  while (content[end] !== ':') {
+    if (end > content.length - 1) {
+      throw new Error('Failed to finish parsing property')
+    }
 
-  const key = content.slice(start, end - 1)
+    ++end
+  }
+
+  const key = content.slice(start, end)
 
   // Skip ":"
   ++end
 
+  const between = []
+
+  while (
+    WHITESPACE.test(content[end]) ||
+    (content[end] === '/' && content[end + 1] === '*')
+  ) {
+    if (WHITESPACE.test(content[end])) {
+      const state = parseWhitespaceNode(content, end, options)
+
+      if (options.whitespace) {
+        between.push(state.node)
+      }
+
+      end = state.index
+    } else {
+      const state = parseCommentNode(content, end, options)
+
+      if (options.comments) {
+        between.push(state.node)
+      }
+
+      end = state.index
+    }
+  }
+
   const valueStart = end
 
-  // TODO: parse comments and whitespace between nodes here
+  while (content[end] !== ';') {
+    if (end > content.length - 1) {
+      throw new Error('Failed to finish parsing property')
+    }
 
-  while (end !== ';') ++end
+    ++end
+  }
 
   return {
-    index: end + 1, // Skipping to character past ";"
+    index: ++end, // Skipping to character past ";"
     node: {
-      between: [],
+      between,
       key,
       type: PROPERTY_TYPE,
       value: content.slice(valueStart, end - 1),
@@ -75,13 +116,23 @@ function parseSelectorNode (
 ): ParseSelectorNodeResponse {
   let end = start
 
-  while (content[end] !== '{') ++end
+  while (content[end] !== '{') {
+    if (end > content.length - 1) {
+      throw new Error('Failed to finish parsing selector')
+    }
+
+    ++end
+  }
 
   const children = []
-  const selector = content.slice(start, end - 1)
+  const selector = content.slice(start, end)
+
+  ++end // Skip "{"
 
   while (content[end] !== '}') {
-    if (WHITESPACE.test(content[end])) {
+    if (end > content.length - 1) {
+      throw new Error('Failed to finish parsing selector')
+    } else if (WHITESPACE.test(content[end])) {
       const state = parseWhitespaceNode(content, end, options)
       if (options.whitespace) children.push(state.node)
       end = state.index
@@ -97,10 +148,10 @@ function parseSelectorNode (
   }
 
   return {
-    index: end,
+    index: ++end, // Skipping to character past "}"
     node: {
       children,
-      selector,
+      selector: options.whitespace ? selector : selector.trim(),
       type: SELECTOR_TYPE,
     },
   }

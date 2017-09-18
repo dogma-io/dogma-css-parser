@@ -1,4 +1,6 @@
 const COMMENT_TYPE = 'comment'
+const PROPERTY_NODE = 'property'
+const SELECTOR_NODE = 'selector'
 const WHITESPACE_NODE = 'whitespace'
 
 function esc (text) {
@@ -119,6 +121,28 @@ export default function (parse) {
         {
           text: 'Test',
           type: COMMENT_TYPE,
+        },
+      ],
+    },
+    {
+      inputs: [
+        '.foo {\ncolor: red;\n}',
+      ],
+      options: {
+        whitespace: false,
+      },
+      tree: [
+        {
+          children: [
+            {
+              between: [],
+              key: 'color',
+              type: PROPERTY_NODE,
+              value: 'red',
+            },
+          ],
+          selector: '.foo',
+          type: SELECTOR_NODE,
         },
       ],
     },
